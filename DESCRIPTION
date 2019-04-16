@@ -7,7 +7,7 @@ Authors@R: c(person("Thrash", "Adam", email = "thrash@igbb.msstate.edu",
 Description: PAST takes TASSEL-formatted GWAS output and returns signficant pathways.
 License: GPL (>=3)
 Encoding: UTF-8
-Depends: R (>= 3.6)
+Depends: R (>= 3.5)
 Imports: stats, utils, stringr, dplyr, rlang, iterators, parallel, foreach, doParallel, qvalue, ggplot2
 Suggests: 
     knitr,
