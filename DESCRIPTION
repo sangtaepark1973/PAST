@@ -11,7 +11,7 @@ Description: PAST takes GWAS output and assigns SNPs to genes, uses those genes
     and plotting pathways.
 License: GPL (>=3)
 Encoding: UTF-8
-Depends: R (>= 3.5)
+Depends: R (>= 3.6)
 Imports: stats, 
     utils, 
     dplyr, 
