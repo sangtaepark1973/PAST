@@ -22,7 +22,9 @@ Imports: stats,
     doParallel, 
     qvalue,
     rtracklayer,
-    ggplot2
+    ggplot2,
+    GenomicRanges,
+    S4Vectors
 Suggests: 
     knitr,
     rmarkdown
