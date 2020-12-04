@@ -398,7 +398,7 @@ assign_SNPs_to_genes <-
                               by.y = "Marker1") %>%
                         dplyr::mutate(Marker1 = .data$Marker,
                                       SNP1_pvalue = .data$p,
-                                      SNP1_effect = .data$Effect.x) %>%
+                                      SNP1_effect = .data$Effect) %>%
                         dplyr::select(
                             .data$Locus,
                             .data$Position1,
@@ -421,7 +421,7 @@ assign_SNPs_to_genes <-
                               all.y = TRUE) %>%
                         dplyr::mutate(Marker2 = .data$Marker,
                                       SNP2_pvalue = .data$p,
-                                      SNP2_effect = .data$Effect.x) %>%
+                                      SNP2_effect = .data$Effect) %>%
                         dplyr::select(
                             .data$Locus,
                             .data$Position1,

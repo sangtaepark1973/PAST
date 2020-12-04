@@ -4,10 +4,10 @@ author: "Adam Thrash"
 date: "`r Sys.Date()`"
 output: rmarkdown::html_vignette
 vignette: >
-  %\VignetteIndexEntry{PAST}
+%\VignetteIndexEntry{PAST}
   %\VignetteEngine{knitr::rmarkdown}
   \usepackage[utf8]{inputenc}
----
+  ---
   
 ```{r setup, include = FALSE}
 knitr::opts_chunk$set(
@@ -63,6 +63,10 @@ demo_association_file = system.file("extdata", "association.txt.xz",
                                     package = "PAST", mustWork = TRUE)
 demo_effects_file = system.file("extdata", "effects.txt.xz", 
                                 package = "PAST", mustWork = TRUE)
+demo_effects_single_line = system.file("extdata", "effects.single_line.txt.xz", 
+                                       package = "PAST", mustWork = TRUE)
+demo_single_gwas_file = system.file("extdata", "single_gwas.txt.xz",
+                                    package = "PAST", mustWork = TRUE)
 demo_LD_file = system.file("extdata", "LD.txt.xz", 
                            package = "PAST", mustWork = TRUE)
 demo_genes_file = system.file("extdata", "genes.gff", 
@@ -100,14 +104,23 @@ the way that TASSEL codes alleles, the last allele estimate for a marker is
 always zero and the other allele estimates are relative to that.
 
 ```{r loading_gwas_data}
-gwas_data <- load_GWAS_data(c(demo_association_file, demo_effects_file), input_type = "TASSEL")
+gwas_data_from_single_file <- load_GWAS_data(c(demo_single_gwas_file), input_type = "single")
+gwas_data_from_two_files <- load_GWAS_data(c(demo_association_file, demo_effects_single_line), input_type = "two")
+gwas_data_from_TASSEL <- load_GWAS_data(c(demo_association_file, demo_effects_file), input_type = "TASSEL")
+# check equality
+all.equal(gwas_data_from_single_file, gwas_data_from_two_files)
+all.equal(gwas_data_from_single_file, gwas_data_from_TASSEL)
+all.equal(gwas_data_from_two_files, gwas_data_from_TASSEL)
+# assign gwas_data to gwas_data_from_TASSEL and use gwas_data in other examples
+gwas_data = gwas_data_from_TASSEL
+
 ```
 
 ## Loading LD Data
 
 LD data is loaded from the linkage disequilibrium file. In the process, 
 incomplete cases are dropped and the data is split into a data.frame for each 
-chromomsome. Your LD data's Chromosome information should match your GFF 
+chromosome. Your LD data's Chromosome information should match your GFF 
 annotation's chromosome column (the first column). The LD file is described
 below.
 
@@ -145,7 +158,7 @@ all) linked genes.
 column should match the chromosomes in your LD data.
 
 ```{r assigning_SNPs}
-genes <-assign_SNPs_to_genes(gwas_data, 
+genes <-assign_SNPs_to_genes(gwas_data_from_single_file, 
                              LD, 
                              demo_genes_file,
                              c("gene"),

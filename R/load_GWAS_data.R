@@ -16,11 +16,14 @@
 #' @import utils
 #' @import dplyr
 #' @examples
-#' demo_association_file = system.file("extdata", "association.txt.xz",
-#'   package = "PAST", mustWork = TRUE)
-#' demo_effects_file = system.file("extdata", "effects.txt.xz",
-#'   package = "PAST", mustWork = TRUE)
-#' gwas_data <- load_GWAS_data(demo_association_file, demo_effects_file)
+#' demo_gwas_file = system.file("extdata", "single_gwas.txt.xz", package = "PAST", mustWork = TRUE)
+#' gwas_data <- load_single_generic(c(demo_gwas_file))
+#' demo_association_file = system.file("extdata", "association.txt.xz", package = "PAST", mustWork = TRUE)
+#' demo_effects_file = system.file("extdata", "effects.single_line.txt.xz", package = "PAST", mustWork = TRUE)
+#' gwas_data <- load_two_generic(c(demo_association_file, demo_effects_file))
+#' demo_association_file = system.file("extdata", "association.txt.xz", package = "PAST", mustWork = TRUE)
+#' demo_effects_file = system.file("extdata", "effects.txt.xz", package = "PAST", mustWork = TRUE)
+#' gwas_data <- load_TASSEL(c(demo_association_file, demo_effects_file))
 load_GWAS_data <- function(files,
                            trait = "Trait",
                            marker = "Marker",
@@ -31,20 +34,31 @@ load_GWAS_data <- function(files,
                            effect = "Effect",
                            input_type) {
   if (length(files) == 1) {
-    gwas_file = files[[1]]
-    gwas_data = load_single_generic(gwas_file,
-                                    trait,
-                                    marker,
-                                    locus,
-                                    site,
-                                    p,
-                                    marker_R2,
-                                    effect)
-    
+    if (input_type == "single") {
+      gwas_file = files[[1]]
+      gwas_data = load_single_generic(gwas_file,
+                                      trait,
+                                      marker,
+                                      locus,
+                                      site,
+                                      p,
+                                      marker_R2,
+                                      effect)
+    }
   } else if (length(files) == 2) {
     association_file = files[[1]]
     effects_file = files[[2]]
-    if (input_type == "TASSEL") {
+    if (input_type == "two") {
+      gwas_data = load_two_generic(files[[1]], 
+                                   files[[2]],
+                                   trait,
+                                   marker,
+                                   locus,
+                                   site,
+                                   p,
+                                   marker_R2,
+                                   effect)
+    } else if (input_type == "TASSEL") {
       gwas_data = load_TASSEL(files[[1]], 
                               files[[2]],
                               trait,
@@ -74,10 +88,6 @@ load_GWAS_data <- function(files,
 #' @importFrom rlang .data
 #' @import utils
 #' @import dplyr
-#' @examples
-#' demo_gwas_file = system.file("extdata", "single_gwas.txt.xz",
-#'   package = "PAST", mustWork = TRUE)
-#' gwas_data <- load_single_generic(c(demo_gwas_file))
 load_single_generic <- function(gwas_file,
                                 trait = "Trait",
                                 marker = "Marker",
@@ -95,28 +105,18 @@ load_single_generic <- function(gwas_file,
                   Marker = paste0(.data$Chr, "_", .data$Pos),
                   p = !!as.name(p),
                   marker_R2 = !!as.name(marker_R2),
-                  effect = !!as.name(effect)) %>%
+                  Effect = !!as.name(effect)) %>%
     dplyr::select(.data$Marker,
                   .data$Marker_original,
-                  .data$Trait,
                   .data$Chr,
                   .data$Pos,
                   .data$p,
                   .data$marker_R2,
-                  .data$effect)
-  
-  # Delete all markers in effects and stats with more or less alleles than 2
-  non_biallelic <- gwas_data %>%
-    dplyr::group_by(.data$Marker_original) %>%
-    dplyr::summarise(count = n()) %>%
-    dplyr::filter(count != 2)
-  gwas_data <-
-    gwas_data %>% 
-    dplyr::filter(!(.data$Marker_original %in% non_biallelic$Marker_original))
+                  .data$Effect)
   
   # Remove all NaN data to prevent math with NaN
   gwas_data <- gwas_data %>% dplyr::filter(.data$marker_R2 != "NaN")
-  gwas_data
+  gwas_data %>% arrange(.data$Chr, .data$Pos)
 }
 
 #' Load two-file generic
@@ -135,12 +135,6 @@ load_single_generic <- function(gwas_file,
 #' @importFrom rlang .data
 #' @import utils
 #' @import dplyr
-#' @examples
-#' demo_association_file = system.file("extdata", "association.txt.xz",
-#'   package = "PAST", mustWork = TRUE)
-#' demo_effects_file = system.file("extdata", "effects.txt.xz",
-#'   package = "PAST", mustWork = TRUE)
-#' gwas_data <- load_two_generic(c(demo_association_file, demo_effects_file))
 load_two_generic <- function(association_file,
                              effects_file,
                              trait = "Trait",
@@ -179,18 +173,6 @@ load_two_generic <- function(association_file,
                   .data$Pos,
                   .data$Effect)
   
-  # Delete all markers in effects and stats with more or less alleles than 2
-  non_biallelic <- effects %>%
-    dplyr::group_by(.data$Marker_original) %>%
-    dplyr::summarise(count = n()) %>%
-    dplyr::filter(count != 2)
-  effects <-
-    effects %>% 
-    dplyr::filter(!(.data$Marker_original %in% non_biallelic$Marker_original))
-  stats <-
-    stats %>% 
-    dplyr::filter(!(.data$Marker_original %in% non_biallelic$Marker_original))
-  
   # Remove all NaN data to prevent math with NaN
   stats <- stats %>% dplyr::filter(.data$marker_R2 != "NaN")
   
@@ -204,14 +186,13 @@ load_two_generic <- function(association_file,
     dplyr::select(
       .data$Marker,
       .data$Marker_original,
-      .data$Chr,
-      .data$Pos,
+      Chr=.data$Chr.x,
+      Pos=.data$Pos.x,
       .data$p,
       .data$marker_R2,
-      .data$Effect.x,
-      .data$Effect.y
+      .data$Effect
     )
-  all_data
+  all_data %>% arrange(.data$Chr, .data$Pos)
 }
 
 
@@ -231,12 +212,6 @@ load_two_generic <- function(association_file,
 #' @importFrom rlang .data
 #' @import utils
 #' @import dplyr
-#' @examples
-#' demo_association_file = system.file("extdata", "association.txt.xz",
-#'   package = "PAST", mustWork = TRUE)
-#' demo_effects_file = system.file("extdata", "effects.txt.xz",
-#'   package = "PAST", mustWork = TRUE)
-#' gwas_data <- load_TASSEL(c(demo_association_file, demo_effects_file))
 load_TASSEL <- function(association_file,
                         effects_file,
                         trait = "Trait",
@@ -316,8 +291,7 @@ load_TASSEL <- function(association_file,
       .data$Pos,
       .data$p,
       .data$marker_R2,
-      .data$Effect.x,
-      .data$Effect.y
+      Effect=.data$Effect.x
     )
-  all_data
+  all_data %>% arrange(.data$Chr, .data$Pos)
 }
