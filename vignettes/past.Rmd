@@ -100,8 +100,7 @@ the way that TASSEL codes alleles, the last allele estimate for a marker is
 always zero and the other allele estimates are relative to that.
 
 ```{r loading_gwas_data}
-gwas_data <- load_GWAS_data(demo_association_file, 
-                            demo_effects_file)
+gwas_data <- load_GWAS_data(c(demo_association_file, demo_effects_file), input_type = "TASSEL")
 ```
 
 ## Loading LD Data
@@ -210,9 +209,9 @@ vertical dashed line.
 ```{r plotting}
 plot_pathways(rugplots_data, 
               "pvalue", 
-              0.02, 
+              0.05, 
               "increasing", 
-              tempdir())
+              "./")
 ```
 
 # References
