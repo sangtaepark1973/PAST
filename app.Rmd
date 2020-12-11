@@ -1,0 +1,335 @@
+---
+title: "PAST"
+output: 
+  flexdashboard::flex_dashboard:
+    orientation: rows
+    vertical_layout: scroll
+runtime: shiny
+---
+
+```{r global, include=FALSE}
+# load data in 'global' chunk so it can be shared by all users of the dashboard
+library(PAST)
+library(dplyr)
+library(DT)
+library(shinyWidgets)
+```
+
+<!-- Column {.sidebar} -->
+<!-- ======================================================================= -->
+
+<!-- Waiting time between eruptions and the duration of the eruption for the -->
+<!-- Old Faithful geyser in Yellowstone National Park, Wyoming, USA. -->
+
+<!-- ```{r} -->
+<!-- selectInput("n_breaks", label = "Number of bins:", -->
+<!--             choices = c(10, 20, 35, 50), selected = 20) -->
+
+<!-- sliderInput("bw_adjust", label = "Bandwidth adjustment:", -->
+<!--             min = 0.2, max = 2, value = 1, step = 0.2) -->
+<!-- ``` -->
+
+Welcome
+=======================================================================
+
+Inputs {.sidebar data-width=300}
+-----------------------------------------------------------------------
+```{r}
+h3("Analysis Title")
+tags$p("Provide a title for your analysis. This title is used for the downloaded results.")
+textInput("title", NULL, value = "New Analysis")
+
+h3("B73 Genome Version")
+selectInput("genome_version",
+            label = NULL,
+            choices = list("RefGen_v2","RefGen_v3","RefGen_v4"))
+
+h3("Mode")
+tags$p("Select the type of analysis you wish to run. \"Increasing\" searches for pathways associated with an increase in the measured trait, and \"decreasing\" searches for pathways associated with a decrease in the measured trait.")
+selectInput("mode", NULL,
+            choices = c("increasing", "decreasing"))
+
+h3("Input Type")
+tags$p("Select the type of GWAS data you have. \"Single\" has all the data in a single file, \"Two\" has separate associations and effects data with one line per marker in each file, and \"TASSEL\" has separate associations data with one line per markers and effects data with two lines per marker.")
+selectInput("input_type", NULL,
+            choices = c("single", "two", "TASSEL"))
+```
+
+GWAS Input
+=======================================================================
+
+Inputs {.sidebar data-width=300}
+-----------------------------------------------------------------------
+
+```{r}
+renderUI({
+  if (input$input_type == "single") {
+    return(h3("File"))
+  } else {
+    return(h3("Files"))
+  }
+})
+
+renderUI({
+  if (input$input_type == "single") {
+    return(tags$p("Upload file containing a single trait. These files can be compressed with BZIP, GZIP, or XZ compression."))
+  } else {
+    return(tags$p("Upload files containing a single trait. These files can be compressed with BZIP, GZIP, or XZ compression."))
+  }
+})
+
+renderUI({
+  if (input$input_type == "single") {
+    return(fileInput("association_file", "GWAS Data File"))
+  } else {
+    return(fileInput("association_file", "Association File"))
+  }
+})
+
+renderUI({
+  if (input$input_type == "single") {
+    return(NULL)
+  } else {
+    return(fileInput("effects_file", "Effects File"))
+  }
+})
+hr()
+h3("Column Names")
+tags$p("Load your data and select the appropriate column for each name.")
+
+association_columns = reactive({
+  if (is.null(input$association_file))
+    return(NULL)
+  names(read.table(input$association_file$datapath, sep = "\t", header = T))
+})
+
+effects_columns = reactive({
+  if (is.null(input$effects_file))
+    return(NULL)
+  names(read.table(input$effects_file$datapath, sep = "\t", header = T))
+})
+
+columns = reactive({
+  if (input$input_type == "single") {
+    return(association_columns())
+  } else {
+    return(c(association_columns(), effects_columns()) %>% unique())
+  }  
+})
+
+renderUI({selectInput("association_trait", 
+                      tags$b("Trait Name"),
+                      selected = NULL,
+                      choices = columns())
+})
+
+renderUI({selectInput("association_marker", 
+                      tags$b("Marker Column Name"),
+                      selected = NULL,
+                      choices = columns())
+})
+
+renderUI({selectInput("association_locus", 
+                      tags$b("Locus/Chromosome Column Name"), 
+                      choices = columns())})
+
+renderUI({selectInput("association_site", 
+                      tags$b("Site/Position Column Name"), 
+                      choices = columns())})
+
+renderUI({selectInput("association_p", 
+                      tags$b("P-value Column Name"), 
+                      choices = columns())})
+
+renderUI({selectInput("association_marker_R2", 
+                      tags$b(tagList("Marker R", tags$sup("2"), " Column Name")), 
+                      choices = columns())})
+
+renderUI({selectInput("effects_effect", 
+                      tags$b("Effect Column Name"), 
+                      choices = columns())})
+
+```
+
+Row
+-----------------------------------------------------------------------
+
+### GWAS Data
+
+```{r}
+get_gwas_data <- reactive({
+  association_file <- input$association_file
+  
+  if (input$input_type == "single") {
+    if (is.null(association_file))
+      return(NULL)
+    input_files = c(association_file$datapath)
+  } else {
+    effects_file <- input$effects_file
+    if (is.null(association_file) | is.null(effects_file))
+      return(NULL)
+    input_files = c(association_file$datapath, effects_file$datapath)
+  }
+  
+  column_set = list(input$association_trait,
+                    input$association_marker,
+                    input$association_locus,
+                    input$association_site,
+                    input$association_p,
+                    input$association_marker_R2,
+                    input$effects_effect)
+  
+  if (sum(vapply(column_set, is.null, TRUE) != 0) | length(column_set %>% unique) != 7)
+    return(NULL)
+  data <- load_GWAS_data(
+    input_files,
+    input$association_trait,
+    input$association_marker,
+    input$association_locus,
+    input$association_site,
+    input$association_p,
+    input$association_marker_R2,
+    input$effects_effect,
+    input$input_type
+  )
+  return(data)
+})
+
+renderDataTable(get_gwas_data())
+```
+
+LD Input
+=======================================================================
+
+Inputs {.sidebar data-width=300}
+-----------------------------------------------------------------------
+
+```{r}
+h3("File")
+tags$p("Upload the linkage disequilibrium file. This file can be compressed with BZIP, GZIP, or XZ compression.")
+fileInput("LD_file", "Linkage Disequilibrium File")
+hr()
+h3("Column Names")
+tags$p("Load your data and select the appropriate column for each name.")
+
+LD_columns = reactive({
+  if (is.null(input$LD_file))
+    return(NULL)
+  names(read.table(input$LD_file$datapath, sep = "\t", header = T))
+})
+
+renderUI({selectInput("LD_locus_1", 
+                      tags$b("Locus1 Column Name"),
+                      selected = NULL,
+                      choices = LD_columns())
+})
+
+renderUI({selectInput("LD_position_1", 
+                      tags$b("Position1 Column Name"),
+                      selected = NULL,
+                      choices = LD_columns())
+})
+
+renderUI({selectInput("LD_site_1", 
+                      tags$b("Site1 Column Name"), 
+                      choices = LD_columns())})
+
+renderUI({selectInput("LD_position_2", 
+                      tags$b("Position2 Column Name"),
+                      selected = NULL,
+                      choices = LD_columns())
+})
+
+renderUI({selectInput("LD_site_2", 
+                      tags$b("Site2 Column Name"), 
+                      choices = LD_columns())})
+
+renderUI({selectInput("LD_distance", 
+                      tags$b("Distance Column Name"), 
+                      choices = LD_columns())})
+
+renderUI({selectInput("LD_R2", 
+                      tags$b("R2 Column Name"), 
+                      choices = LD_columns())})
+
+```
+
+Row
+-----------------------------------------------------------------------
+
+### LD Data
+
+```{r}
+get_LD_data <- reactive({
+  LD_file <- input$LD_file
+  if (is.null(LD_file))
+    return(NULL)
+  
+  column_set = list(input$LD_locus_1,
+                    input$LD_position_1,
+                    input$LD_site_1,
+                    input$LD_position_2,
+                    input$LD_site_2,
+                    input$LD_distance,
+                    input$LD_R2)
+  
+  if (sum(vapply(column_set, is.null, TRUE) != 0) | length(column_set %>% unique) != 7)
+    return(NULL)
+  LD_columns = c(
+    input$LD_locus_1,
+    input$LD_position_1,
+    input$LD_site_1,
+    input$LD_position_2,
+    input$LD_site_2,
+    input$LD_distance,
+    input$LD_R2
+  )
+  data <- load_LD(LD_file$datapath, LD_columns)
+  data
+})
+
+renderDataTable(bind_rows(get_LD_data()))
+```
+
+<!-- Genes Input -->
+<!-- ======================================================================= -->
+
+<!-- Inputs {.sidebar data-width=300} -->
+<!-- ----------------------------------------------------------------------- -->
+<!-- ```{r} -->
+<!-- h3("Gene Assignment Options") -->
+
+<!-- # window size to search for genes -->
+<!-- tags$p("PAST searches for genes within 1kb of SNPs by default, but this number can be changed.") -->
+<!-- numericInput("window", "Window Size", value = 1000) -->
+
+<!-- # r^2 for LD -->
+<!-- tags$p(tagList("PAST uses R", tags$sup("2"), " to determine linkage between SNPs.")) -->
+<!-- sliderInput( -->
+<!--   "r_squared_cutoff", -->
+<!--   NULL, -->
+<!--   min = 0, -->
+<!--   max = 1, -->
+<!--   value = 0.8, -->
+<!--   step = 0.05 -->
+<!-- ) -->
+<!-- ``` -->
+
+<!-- Pathways Input -->
+<!-- ======================================================================= -->
+
+<!-- Inputs {.sidebar data-width=300} -->
+<!-- ----------------------------------------------------------------------- -->
+<!-- ```{r} -->
+<!-- h3("Gene Cutoff") -->
+<!-- tags$p("PAST discards pathways with less than 5 genes by default.") -->
+<!-- numericInput("gene_cutoff", NULL, value = 5) -->
+
+<!-- # number of times to sample effects for generating null distribution -->
+<!-- h3("Sampling") -->
+<!-- tags$p("PAST determines pathway signficance by creating random distributions of gene effects and comparing the actual effects to randomly sampled effects.") -->
+<!-- numericInput("sample", NULL, value = 1000) -->
+<!-- ``` -->
+
+<!-- Results -->
+<!-- ======================================================================= -->
