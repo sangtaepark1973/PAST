@@ -403,13 +403,13 @@ server <- function(input, output, session) {
   # get GWAS data
   get_gwas_data <- reactive({
     association_file <- input$association_file
-    effects_file <- input$effects_file
     
     if (input$input_type == "single") {
       if (is.null(association_file))
         return(NULL)
       input_files = c(association_file$datapath)
     } else {
+      effects_file <- input$effects_file
       if (is.null(association_file) | is.null(effects_file))
         return(NULL)
       input_files = c(association_file$datapath, effects_file$datapath)
